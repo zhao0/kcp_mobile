@@ -30,12 +30,15 @@ jobs:
       # 4. 设置 Android NDK (这是最关键的一步)
       # Gomobile 比较挑 NDK 版本，r25c 是目前最稳的
       - name: Setup Android NDK
+        id: setup-ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r25c
 
       # 5. 安装 Gomobile 工具链
       - name: Install Gomobile
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           go install golang.org/x/mobile/cmd/gomobile@latest
           go install golang.org/x/mobile/cmd/gobind@latest
@@ -45,6 +48,8 @@ jobs:
 
       # 6. 下载依赖并编译
       - name: Build AAR
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           # 整理依赖 (自动下载 kcp-go 和 smux)
           go mod tidy
