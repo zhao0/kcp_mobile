@@ -23,6 +23,7 @@
 package mobilekcp
 
 import (
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,11 +34,16 @@ import (
 
 	kcp "github.com/xtaci/kcp-go/v5"
 	"github.com/xtaci/smux"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
+	// SALT is used for pbkdf2 key expansion (same as kcptun)
+	SALT = "kcp-go"
 	// maximum supported smux version
 	maxSmuxVer = 2
+	// default key (same as kcptun default)
+	defaultKey = "it's a secrect"
 )
 
 // VERSION is injected by buildflags
@@ -228,8 +234,12 @@ func validateConfig(config *Config) error {
 
 // createSession 创建 KCP + SMUX 会话
 func createSession(config *Config) (*smux.Session, error) {
-	// 建立 KCP 连接 (无加密)
-	kcpConn, err := kcp.DialWithOptions(config.RemoteAddr, nil, config.DataShard, config.ParityShard)
+	// 使用 PBKDF2 派生密钥 (与 kcptun 服务端 --crypt none 匹配)
+	pass := pbkdf2.Key([]byte(defaultKey), []byte(SALT), 4096, 32, sha1.New)
+	block, _ := kcp.NewNoneBlockCrypt(pass)
+
+	// 建立 KCP 连接
+	kcpConn, err := kcp.DialWithOptions(config.RemoteAddr, block, config.DataShard, config.ParityShard)
 	if err != nil {
 		return nil, err
 	}
