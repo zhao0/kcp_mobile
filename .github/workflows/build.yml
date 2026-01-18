@@ -56,7 +56,7 @@ jobs:
 
           # 编译命令 (输出为 kcp_proxy.aar)
           # -target=android 会自动打包含 arm64, armv7 等所有架构
-          gomobile bind -target=android -o kcp_proxy.aar .
+          gomobile bind -target=android -androidapi 21 -o kcp_proxy.aar .
 
       # 7. 上传编译结果供下载
       - name: Upload Artifact
