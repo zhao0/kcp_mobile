@@ -22,57 +22,39 @@
 
 package mobilekcp
 
-import (
-	"encoding/json"
-	"os"
-)
-
-// Config for client
+// Config 客户端配置
+// 通过 JSON 传入，支持与 kcptun 服务端匹配的配置
 type Config struct {
-	LocalAddr    string `json:"localaddr"`
-	RemoteAddr   string `json:"remoteaddr"`
-	Key          string `json:"key"`
-	Crypt        string `json:"crypt"`
-	Mode         string `json:"mode"`
-	Conn         int    `json:"conn"`
-	AutoExpire   int    `json:"autoexpire"`
-	ScavengeTTL  int    `json:"scavengettl"`
-	MTU          int    `json:"mtu"`
-	RateLimit    int    `json:"ratelimit"`
-	SndWnd       int    `json:"sndwnd"`
-	RcvWnd       int    `json:"rcvwnd"`
-	DataShard    int    `json:"datashard"`
-	ParityShard  int    `json:"parityshard"`
-	DSCP         int    `json:"dscp"`
-	NoComp       bool   `json:"nocomp"`
-	AckNodelay   bool   `json:"acknodelay"`
-	NoDelay      int    `json:"nodelay"`
-	Interval     int    `json:"interval"`
-	Resend       int    `json:"resend"`
-	NoCongestion int    `json:"nc"`
-	SockBuf      int    `json:"sockbuf"`
-	SmuxVer      int    `json:"smuxver"`
-	SmuxBuf      int    `json:"smuxbuf"`
-	FrameSize    int    `json:"framesize"`
-	StreamBuf    int    `json:"streambuf"`
-	KeepAlive    int    `json:"keepalive"`
-	Log          string `json:"log"`
-	SnmpLog      string `json:"snmplog"`
-	SnmpPeriod   int    `json:"snmpperiod"`
-	Quiet        bool   `json:"quiet"`
-	TCP          bool   `json:"tcp"`
-	Pprof        bool   `json:"pprof"`
-	QPP          bool   `json:"qpp"`
-	QPPCount     int    `json:"qpp-count"`
-	CloseWait    int    `json:"closewait"`
-}
+	// 必填参数
+	LocalAddr  string `json:"localaddr"`  // 本地监听地址 (如 "127.0.0.1:1080")
+	RemoteAddr string `json:"remoteaddr"` // 远程服务器地址 (如 "1.2.3.4:4000")
 
-func parseJSONConfig(config *Config, path string) error {
-	file, err := os.Open(path) // For read access.
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+	// 模式参数
+	Mode string `json:"mode"` // 模式: fast3, fast2, fast, normal (默认 fast)
 
-	return json.NewDecoder(file).Decode(config)
+	// 连接参数
+	Conn int `json:"conn"` // UDP 连接数量 (默认 1)
+
+	// KCP 参数
+	MTU         int  `json:"mtu"`         // MTU 大小 (默认 1350)
+	SndWnd      int  `json:"sndwnd"`      // 发送窗口大小 (默认 128)
+	RcvWnd      int  `json:"rcvwnd"`      // 接收窗口大小 (默认 512)
+	DataShard   int  `json:"datashard"`   // FEC 数据分片 (默认 10)
+	ParityShard int  `json:"parityshard"` // FEC 校验分片 (默认 3)
+	AckNodelay  bool `json:"acknodelay"`  // ACK 无延迟 (默认 false)
+	SockBuf     int  `json:"sockbuf"`     // Socket 缓冲区 (默认 4194304)
+
+	// SMUX 参数
+	SmuxVer   int `json:"smuxver"`   // SMUX 版本 1 或 2 (默认 1)
+	SmuxBuf   int `json:"smuxbuf"`   // SMUX 缓冲区 (默认 4194304)
+	FrameSize int `json:"framesize"` // 帧大小 (默认 4096)
+	StreamBuf int `json:"streambuf"` // 流缓冲区 (默认 2097152)
+	KeepAlive int `json:"keepalive"` // 心跳间隔秒数 (默认 10)
+
+	// 内部参数 (由 Mode 决定)
+	NoDelay      int  `json:"-"`
+	Interval     int  `json:"-"`
+	Resend       int  `json:"-"`
+	NoCongestion int  `json:"-"`
+	NoComp       bool `json:"-"` // 始终为 true，不支持压缩
 }
