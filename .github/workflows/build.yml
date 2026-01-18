@@ -53,6 +53,7 @@ jobs:
         run: |
           # 整理依赖 (自动下载 kcp-go 和 smux)
           go mod tidy
+          go get golang.org/x/mobile/bind
 
           # 编译命令 (输出为 kcp_proxy.aar)
           # -target=android 会自动打包含 arm64, armv7 等所有架构
