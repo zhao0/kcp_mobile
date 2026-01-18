@@ -1,0 +1,64 @@
+name: Build KCP SDK
+
+# 触发条件：当你 push 代码，或者手动点击运行按钮时触发
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 拉取代码
+      - uses: actions/checkout@v4
+
+      # 2. 设置 Java 环境 (JDK 17)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      # 3. 设置 Go 环境 (Go 1.22)
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      # 4. 设置 Android NDK (这是最关键的一步)
+      # Gomobile 比较挑 NDK 版本，r25c 是目前最稳的
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+
+      # 5. 安装 Gomobile 工具链
+      - name: Install Gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+
+          # 初始化，这一步会自动关联 NDK
+          gomobile init
+
+      # 6. 下载依赖并编译
+      - name: Build AAR
+        run: |
+          # 整理依赖 (自动下载 kcp-go 和 smux)
+          go mod tidy
+
+          # 编译命令 (输出为 kcp_proxy.aar)
+          # -target=android 会自动打包含 arm64, armv7 等所有架构
+          gomobile bind -target=android -o kcp_proxy.aar .
+
+      # 7. 上传编译结果供下载
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kcp-sdk-android
+          path: |
+            kcp_proxy.aar
+            kcp_proxy-sources.jar
+          retention-days: 5
