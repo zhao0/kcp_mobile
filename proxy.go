@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/xtaci/smux"
 )
 
-// Config: 仅保留核心网络参数，去掉了密码和压缩开关
+// Config: 仅保留核心网络参数
 type Config struct {
 	LocalAddr   string // "127.0.0.1:8888"
 	RemoteAddr  string // "1.2.3.4:4000"
@@ -31,15 +30,18 @@ var listener net.Listener
 func Start(configJson string) string {
 	var config Config
 	if err := json.Unmarshal([]byte(configJson), &config); err != nil {
-		return "Config Error: " + err.Error()
+		return fmt.Sprintf("Config JSON Error: %v", err)
 	}
 
 	// 1. 监听本地 TCP
 	var err error
 	listener, err = net.Listen("tcp", config.LocalAddr)
 	if err != nil {
-		return "Listen Error: " + err.Error()
+		return fmt.Sprintf("Listen Error: %v", err)
 	}
+
+	// 使用 fmt 打印启动日志
+	fmt.Printf("KCP Proxy Started: %s -> %s\n", config.LocalAddr, config.RemoteAddr)
 
 	go func() {
 		for {
@@ -67,24 +69,23 @@ func handleClient(p1 net.Conn, config Config) {
 	// 关键点：第二个参数传 nil，表示无加密 (--crypt none)
 	kcpConn, err := kcp.DialWithOptions(config.RemoteAddr, nil, config.DataShard, config.ParityShard)
 	if err != nil {
-		log.Println("Dial Error:", err)
+		fmt.Println("Dial Error:", err)
 		return
 	}
 	defer kcpConn.Close()
 
 	// 3. 参数调优
-	// 对应 --mode fast3
-	kcpConn.SetNoDelay(1, 10, 2, 1)
+	kcpConn.SetNoDelay(1, 10, 2, 1) // fast3
 	kcpConn.SetWindowSize(config.SndWnd, config.RcvWnd)
 	kcpConn.SetMtu(config.MTU)
 	kcpConn.SetACKNoDelay(true)
-	kcpConn.SetWriteDelay(false) // 视频流建议 false
+	kcpConn.SetWriteDelay(false) 
 
 	if config.DSCP > 0 {
 		kcpConn.SetDSCP(config.DSCP)
 	}
 
-	// 4. Smux 多路复用 (官方协议头必须有)
+	// 4. Smux 多路复用
 	smuxConfig := smux.DefaultConfig()
 	smuxConfig.Version = 2
 	smuxConfig.KeepAliveInterval = 10 * time.Second
@@ -92,14 +93,14 @@ func handleClient(p1 net.Conn, config Config) {
 	// 直接把 kcpConn 传进去，不套压缩层 (--nocomp)
 	session, err := smux.Client(kcpConn, smuxConfig)
 	if err != nil {
-		log.Println("Smux Error:", err)
+		fmt.Println("Smux Error:", err)
 		return
 	}
 	defer session.Close()
 
 	p2, err := session.OpenStream()
 	if err != nil {
-		log.Println("Stream Error:", err)
+		fmt.Println("Stream Error:", err)
 		return
 	}
 	defer p2.Close()
@@ -107,13 +108,4 @@ func handleClient(p1 net.Conn, config Config) {
 	// 5. 纯管道转发
 	errChan := make(chan error, 2)
 	go func() {
-		_, err := io.Copy(p1, p2)
-		errChan <- err
-	}()
-	go func() {
-		_, err := io.Copy(p2, p1)
-		errChan <- err
-	}()
-	
-	<-errChan
-}
+		_, err := io.Copy(p1, p2
