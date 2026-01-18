@@ -68,3 +68,44 @@ jobs:
             kcp_proxy.aar
             kcp_proxy-sources.jar
           retention-days: 5
+
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      # 1. 拉取代码
+      - uses: actions/checkout@v4
+
+      # 2. 设置 Go 环境 (Go 1.22)
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      # 3. 安装 Gomobile 工具链
+      - name: Install Gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+
+          # 初始化 (macOS 会自动关联 Xcode)
+          gomobile init
+
+      # 4. 下载依赖并编译
+      - name: Build iOS Framework
+        run: |
+          # 整理依赖 (自动下载 kcp-go 和 smux)
+          go mod tidy
+          go get golang.org/x/mobile/bind
+
+          # 编译命令 (输出为 kcp_proxy.xcframework)
+          # -target=ios 会自动打包 arm64 和模拟器架构
+          gomobile bind -target=ios -o Kcp_proxy.xcframework .
+
+      # 5. 上传编译结果供下载
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kcp-sdk-ios
+          path: Kcp_proxy.xcframework
+          retention-days: 5
